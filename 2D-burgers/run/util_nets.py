@@ -228,37 +228,28 @@ def reshape_min_max(n, v_min, v_max, axis = None):
 
 def dataset_normalize(dataset, problem, normalization_definition):
     normalization = dict()
-    # normalization['dt_base'] = normalization_definition['time']['time_constant']  
-    normalization['x_min'] = np.array(normalization_definition['space']['min'])  # -1
-    normalization['x_max'] = np.array(normalization_definition['space']['max'])  # +1
-    if len(problem.get('input_parameters', [])) > 0:  # 3>0
-        normalization['inp_parameters_min'] = np.array([normalization_definition['input_parameters'][v['name']]['min'] for v in problem['input_parameters']])  # (2,)
-        normalization['inp_parameters_max'] = np.array([normalization_definition['input_parameters'][v['name']]['max'] for v in problem['input_parameters']])  # (2,)
-    # if len(problem.get('input_signals', [])) > 0:
-    #     normalization['inp_signals_min'] = np.array([normalization_definition['input_signals'][v['name']]['min'] for v in problem['input_signals']])
-    #     normalization['inp_signals_max'] = np.array([normalization_definition['input_signals'][v['name']]['max'] for v in problem['input_signals']])
+    normalization['x_min'] = np.array(normalization_definition['space']['min']) 
+    normalization['x_max'] = np.array(normalization_definition['space']['max'])
+    if len(problem.get('input_parameters', [])) > 0:  
+        normalization['inp_parameters_min'] = np.array([normalization_definition['input_parameters'][v['name']]['min'] for v in problem['input_parameters']])
+        normalization['inp_parameters_max'] = np.array([normalization_definition['input_parameters'][v['name']]['max'] for v in problem['input_parameters']])
+  
     normalization['out_fields_min'] = np.array([normalization_definition['output_fields'][v['name']]['min'] for v in problem['output_fields']])
     normalization['out_fields_max'] = np.array([normalization_definition['output_fields'][v['name']]['max'] for v in problem['output_fields']])
 
-    # dataset['times']              = dataset['times'] / normalization['dt_base'] # [0, 0.05, 0.1, ..., 5]/0.5 → [0, 0.1, ..., 10]
     dataset['points']             = normalize_forw(dataset['points']        , normalization['x_min']             , normalization['x_max']             , axis = 1) 
     dataset['points_full']        = normalize_forw(dataset['points_full']   , normalization['x_min']             , normalization['x_max']             , axis = 3).float() 
     if dataset['inp_parameters'] is not None:
         dataset['inp_parameters'] = normalize_forw(dataset['inp_parameters'], normalization['inp_parameters_min'], normalization['inp_parameters_max'], axis = 1, mode=2)
-    # if dataset['inp_signals'] is not None:
-    #     dataset['inp_signals']    = normalize_forw(dataset['inp_signals']   , normalization['inp_signals_min']   , normalization['inp_signals_max']   , axis = 2)
-    # dataset['out_fields']         = normalize_forw(dataset['out_fields']    , normalization['out_fields_min']    , normalization['out_fields_max']    , axis = 3, v_range=20)
+ 
 
 
 def out_fields_normalizetion(dataset):
-    out_fields = dataset['out_fields']  # (num_sample/para, n_t, s_dim, 1)
+    out_fields = dataset['out_fields']  
     out_fields_max = np.max(out_fields, axis=(1, 2, 3))
-    out_fields_min = np.min(out_fields, axis=(1, 2, 3))  # (num_sample,)
-    # np.save(path_results + date_str + './of_max.npy', out_fields_max)
-    # np.save(path_results + date_str + './of_max.npy', out_fields_min)
-    # dataset['out_fields'] = 10 * (out_fields - out_fields_min[:, np.newaxis, np.newaxis, np.newaxis]) / (out_fields_max - out_fields_min)[:, np.newaxis, np.newaxis, np.newaxis] - 5
+    out_fields_min = np.min(out_fields, axis=(1, 2, 3))  
+ 
     dataset['out_fields'] = 2 * (out_fields - out_fields_min[:, np.newaxis, np.newaxis, np.newaxis]) / (out_fields_max - out_fields_min)[:, np.newaxis, np.newaxis, np.newaxis] - 1
-    # return normalized_data
 
 def out_fields_reverse(dataset, of_simu):
     param_grid = dataset['inp_parameters'].cpu().detach().numpy()

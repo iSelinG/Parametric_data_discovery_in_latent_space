@@ -22,29 +22,16 @@ import random
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def seed_everything(seed=11):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-seed = 12
-seed_everything(seed)
-
 num_latent_states = 4 
 
 loss_sindy_weight = 0.1
 
-print('seed', seed)
+
 print('num_latent_states', num_latent_states)
 
 date = time.localtime()
 date_str = "{month:02d}_{day:02d}_{year:04d}_{hour:02d}_{minute:02d}"
-date_str = date_str.format(month = date.tm_mon, day = date.tm_mday, year = date.tm_year, hour = date.tm_hour, minute = date.tm_min) + '_nz_' + str(num_latent_states) + '_seed_' + str(seed) + '_sindy_weight_' + str(loss_sindy_weight) + '_' + str(441)
+date_str = date_str.format(month = date.tm_mon, day = date.tm_mday, year = date.tm_year, hour = date.tm_hour, minute = date.tm_min) + '_nz_' + str(num_latent_states)  + '_sindy_weight_' + str(loss_sindy_weight) + '_' + str(441)
 
 
 device = torch.device('cuda:0')  
@@ -159,14 +146,6 @@ out_fiedl_normal_all(dataset_test, v_range=10)
 cuda = torch.cuda.is_available()
 print('cuda', cuda)
 
-def seed_everything(seed=11):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
 
 num_latent_states = 4
@@ -264,28 +243,26 @@ def evolve_dynamics(dataset, model, dt):
     
     ds_t = torch.stack(d_state_history).permute(1, 0, 2)
     s_t = torch.stack(state_history).permute(1, 0, 2)
-    
-    # return torch.stack(state_history).permute(1, 0, 2)  # (n_sample,n_t,n_latent_state) s(t)
+
     return ds_t, s_t
 
 
 def reconstruct_output(dataset, states, model):
     states_expanded = torch.unsqueeze(states, dim=2).to(device)
     states_expanded = states_expanded.expand(dataset['num_samples'], dataset['num_times'], dataset['num_points'], num_latent_states)
-    # states_expanded = tf.broadcast_to(tf.expand_dims(states, axis = 2), 
-    #     [dataset['num_samples'], dataset['num_times'], dataset['num_points'], num_latent_states])  # (100,101,1,2)→(n_sample100,n_t101,s_dim100,2) 
+ 
 
-    return model.rec(torch.cat([states_expanded, dataset['points_full']], dim=3)) # NNrec(s(t),x)=y/z  s(t)(n_sample,n_t,2)+x(s_dim,) → (n_sample,n_t,s_dim,3) → (n_sample,n_t,s_dim,1)
+    return model.rec(torch.cat([states_expanded, dataset['points_full']], dim=3)) 
 
 def LDNet(dataset, model, dt):
-    d_states, states = evolve_dynamics(dataset, model, dt)  # dt,dt_ref,n_ts,n_sample,n_latent_state,NNdyn,u → s(t) (n_sample,n_t,n_latent_state=2)
-    return d_states, states, reconstruct_output(dataset, states, model)  # y(x,t)=(n_sample,n_t,s_dim,1)
+    d_states, states = evolve_dynamics(dataset, model, dt) 
+    return d_states, states, reconstruct_output(dataset, states, model)
 
 def MSE(dataset, model, dt):
     d_states, state, out_fields = LDNet(dataset, model, dt)
-    error = out_fields - dataset['out_fields']  # (n_sample, n_t, s_dim, 1)
+    error = out_fields - dataset['out_fields'] 
 
-    return d_states, state, error # torch.mean(torch.square(error))
+    return d_states, state, error 
 
 
 
@@ -296,34 +273,22 @@ n_sindy_solve = 500
 
 class TotalModel:
     def __init__(self, model, problem, dataset_train, dataset_test):
-        # path_results = model_parameters['path_results']
-
-        # optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr = lr)
-        # MSE = torch.nn.MSELoss()
         training_losses = []
-        
         self.MSE = MSE
         self.optimizer = optimizer
         self.model = model
         self.training_losses = training_losses
-
-        # scheduler = StepLR(optimizer, step_size=1000, gamma=0.5)  # 每经过step_size个epoch，将学习率乘以gamma
-        scheduler = StepLR(optimizer, step_size=1000, gamma=0.9)  # 每经过step_size个epoch，将学习率乘以gamma
+        scheduler = StepLR(optimizer, step_size=1000, gamma=0.9)
         self.scheduler = scheduler
-
-        
         self.problem = problem
-
         self.n_iter = n_iter
-
-
         self.dt = dt
         self.points = dataset_train['points']
         self.times = dataset_train['times']
         self.out_fields = dataset_train['out_fields'].to(device)
         self.inp_parameters = dataset_train['inp_parameters'].to(device)
-        self.points_full = dataset_train['points_full'].to(device)  
+        self.points_full = dataset_train['points_full'].to(device)
 
         dataset = dataset_train
         dataset['times'] = self.times
@@ -331,9 +296,7 @@ class TotalModel:
         dataset['out_fields'] = self.out_fields
         dataset['inp_parameters'] = self.inp_parameters
         dataset['points_full'] = self.points_full
-
         self.dataset_train = dataset
-
 
         dataset = dataset_test
         dataset['times'] = self.times
@@ -343,7 +306,6 @@ class TotalModel:
         dataset['points_full'] = dataset_test['points_full'].to(device)
 
         self.dataset_test = dataset
-
         self.poly_order = poly_order
         self.num_latent_states = num_latent_states
         sindy_coef = []
@@ -386,17 +348,14 @@ class TotalModel:
 
         MSEloss = torch.nn.MSELoss()
 
-        for iter in range(0, n_iter+1):  # 28000
+        for iter in range(0, n_iter+1): 
         
             optimizer.zero_grad()
-            # s_t = model.dyn(dataset_train)
-            # X_pred = autoencoder.decoder(Z)
-            # z = Z.cpu()
 
-            d_states, state, error = MSE(dataset_train, model, dt)  # d_states.shape(cuda)=(n_sample,n_t,n_latent_states), error.shape=# (n_sample, n_t, s_dim, 1)
+
+            d_states, state, error = MSE(dataset_train, model, dt) 
 
             if d_states.device.type == 'cuda':
-                # d_states = d_states.cpu()
                 state = state.cpu()
 
 
@@ -409,7 +368,7 @@ class TotalModel:
                 dz_predict.append(torch.matmul(Theta[i], sindy_coef[i]))
                 loss_coef += torch.norm(sindy_coef[i])
             
-            dz_predict = torch.stack(dz_predict, axis=0)  # (n_sample,n_t,3)
+            dz_predict = torch.stack(dz_predict, axis=0) 
 
             
             loss_sindy = MSEloss(d_states[:, :, :num_latent_states], dz_predict)
@@ -424,7 +383,7 @@ class TotalModel:
             
             model.eval()
             with torch.no_grad():
-                _, _, valid_error = MSE(dataset_test, model, dt) # loss(dataset_test, model, dt)
+                _, _, valid_error = MSE(dataset_test, model, dt) 
                 valid_loss_model = torch.mean(torch.square(valid_error))
 
             if iter % 100 == 0:
@@ -444,15 +403,13 @@ class TotalModel:
             training_losses.append(loss_model.item())
 
             if iter > 0 and iter % n_sindy_solve == 0:
-                # X_train = X_train.cpu()
-                # autoencoder = autoencoder.cpu()
-                # autoencoder.load_state_dict(torch.load(path_results + date_str + '/checkpoint.pth')['model_state_dict'])
+
                 best_sindy_coef = []
                 for i in range(num_samples):  
                     sindy_coef_i = (sindy_coef[i]).clone()
                     if sindy_coef_i.device.type == 'cuda':
                         sindy_coef_i = sindy_coef_i.cpu()
-                    best_sindy_coef.append(sindy_coef_i.detach().numpy())  # list num_samples list[0].shape=(library_size,num_latent_states)
+                    best_sindy_coef.append(sindy_coef_i.detach().numpy())
                 
                 
 
@@ -483,20 +440,8 @@ class TotalModel:
         torch.save({
                         'epoch': iter,
                         'model_state_dict': model.state_dict(),
-                        # 'optimizer_state_dict': optimizer.state_dict(),
+
                     }, path_results + date_str + '/checkpoint_last.pth')
-        # np.save(path_results + date_str + '/param_train_update.npy', param_train)
-        
-        # if loss.item() < best_loss and iter % 100 == 0:
-        #         best_loss = loss
-        #         with open(path_results + date_str + '/training_losses.pkl', 'wb') as f:  
-        #             pickle.dump(training_losses, f)
-        #         torch.save({
-        #                         'epoch': iter,
-        #                         'model_state_dict': autoencoder.state_dict(),
-        #                         # 'optimizer_state_dict': optimizer.state_dict(),
-        #                     }, path_results + date_str + '/checkpoint.pth')
-        #         np.save(path_results + date_str + '/param_train_update.npy', param_train)
 
 
 retrain = False
@@ -504,7 +449,6 @@ retrain = False
 
 
 if retrain == False:
-    # model_parameters['date_str'] = date_str
     if not os.path.isdir(path_results + date_str):
         os.mkdir(path_results + date_str)
 else:

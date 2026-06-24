@@ -13,20 +13,19 @@ from utils_sindy import *
 torch_params = {
 
 
-    'source_path': '/root/data1/lock_exchange/data/',  # 原始flml和msh存在的地方
+    'source_path': '/root/data1/lock_exchange/data/', 
 
-    'datasets_folder': '/root/data1/lock_exchange/data/vtu_data_test/',  # 将存放vtu的文件夹
+    'datasets_folder': '/root/data1/lock_exchange/data/vtu_data_test/',  
     'datasets_folder_test': '/root/data1/lock_exchange/data/vtu_data_test/',
 
-    'FullModel_folder': '/root/data1/lock_exchange/data/npy_data_train/',  # 存放读取vtu后的npy文件（相当于LoadData结果），存放coor.npy，未备份flml和msh
+    'FullModel_folder': '/root/data1/lock_exchange/data/npy_data_train/', 
     'FullModel_folder_test': '/root/data1/lock_exchange/data/npy_data_test/',
 
     'coor_folder': '/root/data1/lock_exchange/data/',
     
     
-    'Docs': '/root/data1/lock_exchange/Docs/',  # 存放参数.csv
+    'Docs': '/root/data1/lock_exchange/Docs/',  
 
-    # 时间相关
     'start_time': 0,
     'end_time': 7.5, 
     'timestep': 0.05, 
@@ -36,7 +35,7 @@ torch_params = {
     
 
     
-    # 'vtu_time_num': 102,   # vtu时间文件总数（加上头0尾52）
+    # 'vtu_time_num': 102,  
     'vtu_start': 0,
     'vtu_end': 149, #199, # 299,
     'vtu_time_num': 150, # 200, # 300,
@@ -74,7 +73,6 @@ torch_params = {
 	'viso_1st_ss': 1e-5, # 1e-6->1e-5
 	'viso_2nd_ss': 1e-4, # 1e-5->1e-4
 	'viso_max': 1e-3, # 1e-4->1e-3
-	# 'viso_num_sum': 5,
 	'viso_num_ss': 3,  # -1
 
     
@@ -91,7 +89,7 @@ torch_params = {
 }
 
 
-# 存放生成的参数
+
 torch_params['temperature_uniform_data_name'] = torch_params['Docs'] + os.sep + 'temperature_uniform_data.npy'
 torch_params['viscosity_uniform_data_name'] = torch_params['Docs'] + os.sep + 'viscosity_uniform_data.npy'
 torch_params['t_vis_table_name'] = torch_params['Docs'] + os.sep + 'temp_visco_table_data.csv'

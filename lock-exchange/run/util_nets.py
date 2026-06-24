@@ -139,19 +139,15 @@ def sindy_library(X, poly_order, include_sine=False, include_cosine=False):
 
 
 def sindy_simulate(x0, t, Xi, poly_order, include_sine=False, include_cosine=False):
-    '''
-    只解一个Xi
-    '''
     m = t.size
-    n = x0.size  # x0.shape=(nz,)
+    n = x0.size  
     f = lambda x,t : np.dot(sindy_library(np.array(x).reshape((1,n)), poly_order, include_sine, include_cosine), Xi).reshape((n,))
 
     x = odeint(f, x0, t)
-    return x   # (t_dim, nz)
+    return x 
 
 
 def model_sindy(sindy_coef, dataset, model, poly_order,  num_latent_states):
-    # state0 = np.zeros((dataset['num_samples'], num_latent_states), dtype=np.float32)
     if hasattr(model, 'state0'):
         state0 = model.state0
         state0 = state0.cpu().detach().numpy()  # (num_latent_sates,)
@@ -165,7 +161,7 @@ def model_sindy(sindy_coef, dataset, model, poly_order,  num_latent_states):
     times = dataset['times']
 
     s_simu = []
-    # of_simu = []
+
 
     for k in range(dataset['num_samples']):
         s_simu_k = sindy_simulate(state0[k], times, sindy_coef[k], poly_order)
@@ -180,42 +176,39 @@ def model_sindy(sindy_coef, dataset, model, poly_order,  num_latent_states):
     of_simu = []
     inp_para_expanded = dataset['inp_parameters'].unsqueeze(1).unsqueeze(2)
     inp_para_expanded = inp_para_expanded.expand(dataset['num_samples'], dataset['num_times'], dataset['num_points'], 2)
-    # input_rec = torch.cat([s_simu_expanded, dataset['points_full']], dim=3)  # (num_sample, n_t, s_dim, 2+4)
-    input_rec = torch.cat([s_simu_expanded, dataset['points_full'], inp_para_expanded], dim=3)  # (num_sample, n_t, s_dim, 2+4)
+  
+    input_rec = torch.cat([s_simu_expanded, dataset['points_full'], inp_para_expanded], dim=3) 
     for i in range(len(input_rec)):
         of_simu.append(model.rec(input_rec[i, :, :, :]).cpu().detach().numpy())
     
     of_simu = np.stack(of_simu)
-    # print('of_simu', of_simu.shape)
 
     return s_simu, of_simu
 
 
 
-
-
 def normalize_forw(v, v_min, v_max, axis = None, mode = 1, v_range = 1):
     v_min, v_max = reshape_min_max(len(v.shape), v_min, v_max, axis)
-    if mode == 1:  # 投影到[-1,1]
+    if mode == 1: 
         return v_range * (2.0*v - v_min - v_max) / (v_max - v_min)
-    elif mode == 2:  # 投影到[0,1]
+    elif mode == 2: 
         return (v - v_min) / (v_max - v_min)
         
 
 def normalize_back(v, v_min, v_max, axis = None, mode = 1):
     v_min, v_max = reshape_min_max(len(v.shape), v_min, v_max, axis)
-    if mode == 1:   # 从[-1,1]还原投影
+    if mode == 1:  
         return 0.5*(v_min + v_max + (v_max - v_min) * v)
-    elif mode == 2:   # 从[0,1]还原投影
+    elif mode == 2:  
         return v * (v_max - v_min) + v_min
 
 
 
 def reshape_min_max(n, v_min, v_max, axis = None):
-    if axis is not None:  # n表示v维数(比如(100,1)→2)，axis表示最后一维
+    if axis is not None: 
         shape_min = [1] * n
         shape_max = [1] * n
-        shape_min[axis] = len(v_min)  # 【意义在于？】在算inp_param时会变成[1,3]
+        shape_min[axis] = len(v_min) 
         shape_max[axis] = len(v_max)
         v_min = np.reshape(v_min, shape_min)
         v_max = np.reshape(v_max, shape_max)
@@ -223,35 +216,26 @@ def reshape_min_max(n, v_min, v_max, axis = None):
 
 
 def dataset_normalize(dataset, problem, normalization_definition):
-    normalization = dict()
-    # normalization['dt_base'] = normalization_definition['time']['time_constant']  # ? 
-    normalization['x_min'] = np.array(normalization_definition['space']['min'])  # -1
-    normalization['x_max'] = np.array(normalization_definition['space']['max'])  # +1
-    if len(problem.get('input_parameters', [])) > 0:  # 3>0
-        normalization['inp_parameters_min'] = np.array([normalization_definition['input_parameters'][v['name']]['min'] for v in problem['input_parameters']])  # (2,)
-        normalization['inp_parameters_max'] = np.array([normalization_definition['input_parameters'][v['name']]['max'] for v in problem['input_parameters']])  # (2,)
-    # if len(problem.get('input_signals', [])) > 0:
-    #     normalization['inp_signals_min'] = np.array([normalization_definition['input_signals'][v['name']]['min'] for v in problem['input_signals']])
-    #     normalization['inp_signals_max'] = np.array([normalization_definition['input_signals'][v['name']]['max'] for v in problem['input_signals']])
+    normalization = dict() 
+    normalization['x_min'] = np.array(normalization_definition['space']['min'])  
+    normalization['x_max'] = np.array(normalization_definition['space']['max']) 
+    if len(problem.get('input_parameters', [])) > 0:  
+        normalization['inp_parameters_min'] = np.array([normalization_definition['input_parameters'][v['name']]['min'] for v in problem['input_parameters']])  
+        normalization['inp_parameters_max'] = np.array([normalization_definition['input_parameters'][v['name']]['max'] for v in problem['input_parameters']]) 
+   
     normalization['out_fields_min'] = np.array([normalization_definition['output_fields'][v['name']]['min'] for v in problem['output_fields']])
     normalization['out_fields_max'] = np.array([normalization_definition['output_fields'][v['name']]['max'] for v in problem['output_fields']])
 
-    # dataset['times']              = dataset['times'] / normalization['dt_base'] # [0, 0.05, 0.1, ..., 5]/0.5 → [0, 0.1, ..., 10]
-    dataset['points']             = normalize_forw(dataset['points']        , normalization['x_min']             , normalization['x_max']             , axis = 1) # (s_dim,1) 
+    dataset['points']             = normalize_forw(dataset['points']        , normalization['x_min']             , normalization['x_max']             , axis = 1) 
     dataset['points_full']        = normalize_forw(dataset['points_full']   , normalization['x_min']             , normalization['x_max']             , axis = 3).float()  
     if dataset['inp_parameters'] is not None:
         dataset['inp_parameters'] = normalize_forw(dataset['inp_parameters'], normalization['inp_parameters_min'], normalization['inp_parameters_max'], axis = 1, mode=2)
-    # if dataset['inp_signals'] is not None:
-    #     dataset['inp_signals']    = normalize_forw(dataset['inp_signals']   , normalization['inp_signals_min']   , normalization['inp_signals_max']   , axis = 2)
-    # dataset['out_fields']         = normalize_forw(dataset['out_fields']    , normalization['out_fields_min']    , normalization['out_fields_max']    , axis = 3, v_range=20)
-
-
+    
 def out_fields_normalizetion(dataset):
-    out_fields = dataset['out_fields']  # (num_sample/para, n_t, s_dim, 1)
+    out_fields = dataset['out_fields']  
     out_fields_max = np.max(out_fields, axis=(1, 2, 3))
-    out_fields_min = np.min(out_fields, axis=(1, 2, 3))  # (num_sample,)
+    out_fields_min = np.min(out_fields, axis=(1, 2, 3)) 
     dataset['out_fields'] = 10 * (out_fields - out_fields_min[:, np.newaxis, np.newaxis, np.newaxis]) / (out_fields_max - out_fields_min)[:, np.newaxis, np.newaxis, np.newaxis] - 5
-    # return normalized_data
 
 def out_fields_reverse(dataset, of_simu):
     param_grid = dataset['inp_parameters'].cpu().detach().numpy()

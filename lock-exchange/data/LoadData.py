@@ -58,10 +58,9 @@ class LoadData(object):
                 filename = vtu_data_path + folder + le_name + str(vtu_start+n) + ".vtu"
                 mesh = pv.read(filename)
                 temperature[n, :] = mesh.point_data["Temperature"]
-                # print(str(n + vtu_start) + ".vtu has been interpolate.")
-            # np.save(os.path.join(torch_params['FullModel_folder'], 'npy_file_9', folder + "_velocity.npy"), velocity)
+                
             np.save(os.path.join(full_model_path,  folder + "_temperature.npy"), temperature)
-            # print(velocity.shape)
+
             temperature_whole[i, :, :] = temperature
             print(folder + " vtu has been read into npy.")
             i = i + 1
@@ -72,8 +71,7 @@ class LoadData(object):
     def read_data(self, npy_path = torch_params['FullModel_folder']):
         '''
         '''
-        # npy_path = os.path.join(torch_params['FullModel_folder'], 'npy_file_9')
-        # npy_path = torch_params['FullModel_folder']
+
         if len(os.listdir(npy_path))<2:
             self.read_from_vtu()
         num_points = self.coordinate_from_npy()
@@ -84,9 +82,9 @@ class LoadData(object):
                 temperature = np.load(os.path.join(npy_path, file))
                 temperature_whole[i, :, :] = temperature
                 i = i + 1
-        # print('velocity_whole.shape: ', velocity_whole.shape)
+
         T = temperature_whole
-        return T  # (para, n_ts, nodes)
+        return T 
     
 
 

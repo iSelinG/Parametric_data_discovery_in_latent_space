@@ -16,15 +16,7 @@ import pickle
 import time
 import random
 from torch.utils.data import Dataset, DataLoader
-# import tensorflow as tf
-# # We configure TensorFlow to work in double precision 
-# tf.keras.backend.set_floatx('float64')
 
-# import utils
-# import optimization
-
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 num_latent_states = 7 
 print('num_latent_states', num_latent_states)
@@ -57,7 +49,6 @@ if type == 'new':
     data = np.load(path_data + 'data_2D_burgers_441_new.npy', allow_pickle = True).item()
 elif type == 'small':
     data = np.load(path_data + 'data_2D_burgers_441_small.npy', allow_pickle = True).item()
-# coor = np.load(path_data + 'coor.npy')
 coor = data['coor']
 
 
@@ -72,10 +63,8 @@ def create_dataset(data, coor, idx):
     if 'data_v' not in data:
         data['data_v'] = data['data_u']
     new_dataset = {
-        'points': coor[:, :],  # (1491,2)
-        'times': data['t'],   # (150,) dt=0.05
-        # 'out_fields': data['X_test'][idx, :, :, None],
-        # 'out_fields': data['data_u'][idx, :, :, None],
+        'points': coor[:, :], 
+        'times': data['t'],   
         'out_fields' : np.concatenate([data['data_u'][idx,:,:,None], data['data_v'][idx,:,:,None]], axis = 3),
         'inp_parameters': data['param'][idx, :],
         'inp_signals': None,
@@ -106,7 +95,6 @@ def process_dataset(dataset, normalization_definition = None, dt = None):
     dataset['num_times'] = num_times
     dataset['num_samples'] = num_samples
 
-    # print(np.max(dataset['out_fields']), np.min(dataset['out_fields']))
     
         
     if normalization_definition is not None:
@@ -122,7 +110,7 @@ def process_dataset(dataset, normalization_definition = None, dt = None):
 
 problem = {
     'space': {
-        'dimension' : 2 # lock-exchange problem
+        'dimension' : 2 
     },
     'input_parameters': [
         { 'name': 'coeff_a' },
@@ -137,11 +125,7 @@ problem = {
 
 normalization = {
     'space': { 'min' : [-1], 'max' : [+1]},
-    # 'time': { 'time_constant' : 0.05 },
-    # 'input_parameters': {
-    #     'coeff_a': { 'min': 0.5, 'max': 1.0 },
-    #     'coeff_w': { 'min': 0.5, 'max': 1.5 },
-    # },
+
     'output_fields': {
         'u': { 'min': -1, 'max': +1 },
         'v': { 'min': -1, 'max': +1 }
@@ -167,19 +151,9 @@ dt = 0.005
 dataset_train = create_dataset(data, coor, idx_train)
 dataset_test = create_dataset(data, coor, idx_test)
 out_fields_normalizetion(dataset_train)  
-out_fields_normalizetion(dataset_test)  # 
-# process_dataset(dataset_train, dt = 0.5)
+out_fields_normalizetion(dataset_test)  
 process_dataset(dataset_train, normalization)
 process_dataset(dataset_test, normalization)
-# process_dataset(dataset_train)
-# process_dataset(dataset_test)
-
-# idx_all = list(range(0, 441, 1))
-# dataset_all = create_dataset(data, coor, idx_all)
-# out_fields_normalizetion(dataset_all)
-# process_dataset(dataset_all, normalization)
-# coef_a = dataset_all['inp_parameters'][:, 0].cpu().detach().numpy()
-# coef_w = dataset_all['inp_parameters'][:, 1].cpu().detach().numpy()
 
 
 for i in dataset_train.keys():
@@ -192,19 +166,6 @@ for i in dataset_train.keys():
 
 cuda = torch.cuda.is_available()
 print('cuda', cuda)
-
-def seed_everything(seed=11):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-seed_everything(12)  
-
 
 
 
@@ -265,7 +226,7 @@ class NN(nn.Module):
             nn.Linear(6, 6),
             nn.Tanh(),
             ResNetBlock(6, 6),
-            nn.Linear(6, num_latent_states * 2)  # d_state, d2s
+            nn.Linear(6, num_latent_states * 2) 
         )
         input_shape = (num_latent_states + problem['space']['dimension'] + len(problem['input_parameters']),)  
         self.rec = nn.Sequential(
@@ -305,12 +266,6 @@ class NN(nn.Module):
         
 
 
-    # def NNdyn(self, x):
-    #     x = self.dyn(x)
-
-    # def NNrec(self, x):
-    #     x = self.rec(x)
-
     def forward(self, x):  
         x_ds = self.dyn(x)
         x = self.rec(x_ds)
@@ -329,8 +284,6 @@ model = NN()
 
 
 def evolve_dynamics(dataset, model, dt): 
-    # num_samples = len(dataset['inp_parameters'])
-    # state = torch.zeros((dataset['num_samples'], num_latent_states), dtype=torch.float32).to(device)  # (100,2)  /  (147, 3)
     if hasattr(model, 'state0'):
         state0 = model.state0
         state0_expand = torch.unsqueeze(state0, 0)
@@ -342,15 +295,11 @@ def evolve_dynamics(dataset, model, dt):
     elif hasattr(model, 'state0_predict'):
         state = model.state0_predict(dataset['inp_parameters'])
     else:
-        state = torch.zeros((dataset['num_samples'], num_latent_states), dtype=torch.float32).to(device)  # (100,2)  /  (147, 3)
-    
+        state = torch.zeros((dataset['num_samples'], num_latent_states), dtype=torch.float32).to(device)  
     state_history = []
-    state_history.append(state)  # s(t_0).shape=(n_sample,n_z)=0
+    state_history.append(state)  
     d_state_history = []
-    # dt_ref = normalization['time']['time_constant']
-    # dt_ref = 1
 
-    # 时间积分
     for _ in range(dataset['num_times'] - 1):
         d_state = model.dyn(torch.cat([state, dataset['inp_parameters']], dim=-1))
         d_state_history.append(d_state[: , :len(dataset['inp_parameters'])])  
@@ -364,7 +313,7 @@ def evolve_dynamics(dataset, model, dt):
     ds_t = torch.stack(d_state_history).permute(1, 0, 2)
     s_t = torch.stack(state_history).permute(1, 0, 2)
     
-    # return torch.stack(state_history).permute(1, 0, 2)  # (n_sample,n_t,n_latent_state) s(t)
+   
     return ds_t, s_t
 
 
@@ -373,21 +322,19 @@ def reconstruct_output(dataset, states, model):
     states_expanded = states_expanded.expand(dataset['num_samples'], dataset['num_times'], dataset['num_points'], num_latent_states)
     inp_para_expanded = dataset['inp_parameters'].unsqueeze(1).unsqueeze(2)
     inp_para_expanded = inp_para_expanded.expand(dataset['num_samples'], dataset['num_times'], dataset['num_points'], 2)
-    # states_expanded = tf.broadcast_to(tf.expand_dims(states, axis = 2), 
-    #     [dataset['num_samples'], dataset['num_times'], dataset['num_points'], num_latent_states])  # (100,101,1,2)→(n_sample100,n_t101,s_dim100,2) 
-    # ccc = torch.cat([states_expanded, dataset['points_full']], dim=3)
-    return model.rec(torch.cat([states_expanded, dataset['points_full'], inp_para_expanded], dim=3)) # NNrec(s(t),x)=y/z  s(t)(n_sample,n_t,2)+x(s_dim,) → (n_sample,n_t,s_dim,3) → (n_sample,n_t,s_dim,1)
+
+    return model.rec(torch.cat([states_expanded, dataset['points_full'], inp_para_expanded], dim=3)) 
 
 def LDNet(dataset, model, dt):
-    d_states, states = evolve_dynamics(dataset, model, dt)  # 使用dt,dt_ref,n_ts,n_sample,n_latent_state,NNdyn,u得到s(t) (n_sample,n_t,n_latent_state=2)
-    return d_states, states, reconstruct_output(dataset, states, model)  # y(x,t)=(n_sample,n_t,s_dim,1)
+    d_states, states = evolve_dynamics(dataset, model, dt) 
+    return d_states, states, reconstruct_output(dataset, states, model) 
 
 def MSE(dataset, model, dt):
     d_states, state, out_fields = LDNet(dataset, model, dt)
-    error = out_fields - dataset['out_fields']  # (n_sample, n_t, s_dim, 1)
+    error = out_fields - dataset['out_fields'] 
     state0_error = error[:, 0, :, :]
 
-    return d_states, state, error, state0_error # torch.mean(torch.square(error))
+    return d_states, state, error, state0_error 
 
 
 
@@ -407,42 +354,22 @@ def lr_lambda(epoch):
 
 class TotalModel:
     def __init__(self, model, problem, dataset_train, dataset_test):
-
-        # optimizer 
         optimizer = torch.optim.Adam(model.parameters(), lr = lr)
-        # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-        # optimizer = torch.optim.LBFGS(model.parameters(), lr=0.01)
-
-
-
         training_losses = []
-        
         self.MSE = MSE
         self.optimizer = optimizer
         self.model = model
         self.training_losses = training_losses
-
-
-        scheduler = StepLR(optimizer, step_size=500, gamma=0.6)  # 每经过step_size个epoch，将学习率乘以gamma
-        # scheduler = LambdaLR(optimizer, lr_lambda)
+        scheduler = StepLR(optimizer, step_size=1000, gamma=0.9)
         self.scheduler = scheduler
-
-
-        
         self.problem = problem
-
         self.n_iter = n_iter
-
-        
-
-        # self.device = device
-
         self.dt = dt
         self.points = dataset_train['points']
         self.times = dataset_train['times']
         self.out_fields = dataset_train['out_fields'].to(device)
         self.inp_parameters = dataset_train['inp_parameters'].to(device)
-        self.points_full = dataset_train['points_full'].to(device)  # tensor 
+        self.points_full = dataset_train['points_full'].to(device)
 
         dataset = dataset_train
         dataset['times'] = self.times
@@ -450,9 +377,7 @@ class TotalModel:
         dataset['out_fields'] = self.out_fields
         dataset['inp_parameters'] = self.inp_parameters
         dataset['points_full'] = self.points_full
-
         self.dataset_train = dataset
-
 
         dataset = dataset_test
         dataset['times'] = self.times
@@ -462,10 +387,8 @@ class TotalModel:
         dataset['points_full'] = dataset_test['points_full'].to(device)
 
         self.dataset_test = dataset
-
         self.poly_order = poly_order
-        self.num_latent_state = num_latent_states
-
+        self.num_latent_states = num_latent_states
         sindy_coef = []
         for i in range(len(dataset_train['inp_parameters'])):
             sindy_coef_i = getattr(model, f'sindy_coef_{i}')
@@ -477,47 +400,33 @@ class TotalModel:
 
     def train(self):
         best_loss = 10000
-
         n_iter = self.n_iter
         MSE = self.MSE
-
         dt = self.dt
         points = self.points
         times = self.times
         out_fields = self.out_fields
         inp_parameters = self.inp_parameters
         points_full = self.points_full
-
         dataset_train = self.dataset_train
         dataset_test = self.dataset_test
-
         num_samples = dataset_train['num_samples']
-
-        # device = self.device
-
         model = self.model
         optimizer = self. optimizer
         scheduler = self.scheduler
-
         model = model.to(device)
         print("Model device:", next(model.parameters()).device)
-
         training_losses = self.training_losses
-
-
         sindy_coef = self.sindy_coef
-
         MSEloss = torch.nn.MSELoss()
 
-        for iter in range(0, n_iter+1):  # 28000
-        
+
+        for iter in range(0, n_iter+1): 
             optimizer.zero_grad()
 
-            aaa = model.parameters()
             d_states, state, error, state0_error = MSE(dataset_train, model, dt)  
 
             if d_states.device.type == 'cuda':
-                # d_states = d_states.cpu()
                 state = state.cpu()
 
 
@@ -545,26 +454,14 @@ class TotalModel:
             optimizer.step()
             scheduler.step()
 
-
-            # if loss_model.item() < best_loss and iter % 100 == 0:
             if iter % 100 == 0:
                 best_loss = loss_model
-                # with open(path_results + date_str + '/training_losses.pkl', 'wb') as f:  
-                #     pickle.dump(training_losses, f)
                 torch.save({
                                 'epoch': iter,
                                 'model_state_dict': model.state_dict(),
-                                # 'optimizer_state_dict': optimizer.state_dict(),
+      
                             }, path_results + date_str + '/checkpoint_500.pth')
-                # np.save(path_results + date_str + '/param_train_update.npy', param_train)
 
-
-            
-            
-            # model.eval()
-            # with torch.no_grad():
-            #     _, _, valid_error = MSE(dataset_test, model, dt) # loss(dataset_test, model, dt)
-            #     valid_loss_model = torch.mean(torch.square(valid_error))
 
             if iter % 100 == 0:
                 if iter % 500 == 0:
@@ -581,15 +478,9 @@ class TotalModel:
 
             training_losses.append(loss_model.item())
 
-            # loss_model.backward()
-            # optimizer.step()
-            # scheduler.step()
 
 
             if iter > 0 and iter % n_sindy_solve == 0:
-                # X_train = X_train.cpu()
-                # autoencoder = autoencoder.cpu()
-                # autoencoder.load_state_dict(torch.load(path_results + date_str + '/checkpoint.pth')['model_state_dict'])
                 best_sindy_coef = []
                 for i in range(num_samples): 
                     sindy_coef_i = (sindy_coef[i]).clone()
@@ -599,35 +490,12 @@ class TotalModel:
                 
 
 
-                s_simu, of_simu = model_sindy(best_sindy_coef, dataset_train, model, poly_order, num_latent_states)  # S0=0 
+                s_simu, of_simu = model_sindy(best_sindy_coef, dataset_train, model, poly_order, num_latent_states) 
 
                 state0 = model.state0_predict(dataset_train['inp_parameters'])
                 state0 = state0.cpu().detach().numpy()
                 print('restru sindy s: ', 1 - torch.norm(s_simu - state, p=2)/torch.norm(state, p=2))
                 print('restru sindy of: ', 1 - np.linalg.norm((of_simu - out_fields.cpu().detach().numpy()).flatten(), ord=2)/np.linalg.norm(out_fields.cpu().detach().numpy().flatten(), ord=2))
-
-            # if iter > 0 and iter % 500 == 0:
-            #     for parameters in model.state0_predict.parameters():
-            #         print(parameters)
-            #     for parameters in model.dyn.parameters():
-            #         print(parameters)
-            #     state0 = model.state0_predict(dataset_train['inp_parameters'])
-            #     state0 = state0.cpu().detach().numpy()
-            #     print('test state0')
-            #     model.eval()
-            #     with torch.no_grad():
-            #         d_states_3, state_3, error_3 = MSE(dataset_train, model, dt)
-            #         d_states4, state4, out_fields4 = LDNet(dataset_train, model, dt)
-            #         loss_3 = torch.mean(torch.square(error_3))
-            #         print('loss_3', loss_3)
-            #         model2 = model.cpu()
-            #         rec_params = filter(lambda p: p[0].startswith('rec'), model2.named_parameters())
-
-
-            #         for name, param in rec_params:
-            #             print(name, param.data.numpy())
-
-                
 
 
             
@@ -655,35 +523,14 @@ class TotalModel:
         torch.save({
                         'epoch': iter,
                         'model_state_dict': model.state_dict(),
-                        # 'optimizer_state_dict': optimizer.state_dict(),
                     }, path_results + date_str + '/checkpoint_last.pth')
-        # np.save(path_results + date_str + '/param_train_update.npy', param_train)
-        
-        # if loss.item() < best_loss and iter % 100 == 0:
-        #         best_loss = loss
-        #         with open(path_results + date_str + '/training_losses.pkl', 'wb') as f:  
-        #             pickle.dump(training_losses, f)
-        #         torch.save({
-        #                         'epoch': iter,
-        #                         'model_state_dict': autoencoder.state_dict(),
-        #                         # 'optimizer_state_dict': optimizer.state_dict(),
-        #                     }, path_results + date_str + '/checkpoint.pth')
-        #         np.save(path_results + date_str + '/param_train_update.npy', param_train)
+
                 
-                
-                
-
-
-
-
-
-# print("Model device:", next(model.parameters()).device)
 retrain = False
 
 
 
 if retrain == False:
-    # model_parameters['date_str'] = date_str
     if not os.path.isdir(path_results + date_str):
         os.mkdir(path_results + date_str)
 else:
